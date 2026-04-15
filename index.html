@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>ATR Position Sizer — Upscale 5K</title>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d1117; --surface: #161b22; --surface2: #21262d;
+      --border: #30363d; --text: #e6edf3; --muted: #8b949e;
+      --green: #3fb950; --red: #f85149; --yellow: #d29922;
+      --blue: #58a6ff; --purple: #bc8cff; --orange: #f0883e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; }
+
+    /* HEADER */
+    header {
+      background: linear-gradient(135deg, #1a1f2e, var(--bg));
+      border-bottom: 1px solid var(--border);
+      padding: 16px 28px;
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+    }
+    header h1 { font-size: 1.2rem; font-weight: 700; color: var(--blue); }
+    header p { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+    .header-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+    .badge { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; font-size: 0.72rem; color: var(--muted); }
+    .badge span { font-weight: 700; }
+    .badge span.g { color: var(--green); }
+    .badge span.r { color: var(--red); }
+    .badge span.b { color: var(--blue); }
+
+    /* NAV TABS */
+    .tabs { display: flex; gap: 4px; padding: 14px 28px 0; border-bottom: 1px solid var(--surface2); background: var(--bg); overflow-x: auto; }
+    .tab { padding: 9px 18px; border-radius: 6px 6px 0 0; border: 1px solid transparent; background: transparent; color: var(--muted); cursor: pointer; font-size: 0.82rem; font-weight: 500; white-space: nowrap; transition: all 0.15s; }
+    .tab:hover { color: var(--text); background: var(--surface); }
+    .tab.active { background: var(--surface); border-color: var(--border); border-bottom-color: var(--surface); color: var(--blue); font-weight: 600; }
+
+    /* CONTENT PANES */
+    .pane { display: none; padding: 24px 28px; }
+    .pane.active { display: block; }
+
+    /* SIZER LAYOUT */
+    .sizer-grid {
+      display: grid; grid-template-columns: 380px 1fr; gap: 20px;
+    }
+    @media(max-width:900px) { .sizer-grid { grid-template-columns: 1fr; } }
+
+    /* PANELS */
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+    .panel h3 { font-size: 0.75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.9px; margin-bottom: 16px; }
+
+    /* FORM */
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 0.75rem; color: var(--muted); margin-bottom: 5px; font-weight: 500; }
+    .form-group input, .form-group select {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+      padding: 9px 12px; color: var(--text); font-size: 0.88rem; outline: none; transition: border 0.15s;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: var(--blue); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    /* PRICE FETCH ROW */
+    .price-row { display: flex; gap: 8px; align-items: flex-end; }
+    .price-row input { flex: 1; }
+    .fetch-btn {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+      padding: 9px 12px; color: var(--blue); font-size: 0.78rem; font-weight: 600; cursor: pointer;
+      white-space: nowrap; transition: all 0.15s;
+    }
+    .fetch-btn:hover { background: var(--border); }
+    .fetch-status { font-size: 0.7rem; color: var(--muted); margin-top: 3px; height: 14px; }
+
+    /* SLIDER */
+    .slider-row { display: flex; align-items: center; gap: 10px; }
+    .slider-row input[type=range] { flex: 1; accent-color: var(--blue); }
+    .slider-val { min-width: 40px; text-align: right; font-size: 0.85rem; color: var(--blue); font-weight: 700; }
+
+    /* CALC BUTTON */
+    .calc-btn {
+      width: 100%; padding: 12px; background: var(--blue); border: none; border-radius: 8px;
+      color: #0d1117; font-size: 0.9rem; font-weight: 700; cursor: pointer; margin-top: 8px;
+      transition: all 0.15s;
+    }
+    .calc-btn:hover { background: #79b8ff; }
+
+    /* RESULTS */
+    .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .result-card {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 14px;
+    }
+    .result-card .rc-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
+    .result-card .rc-val { font-size: 1.6rem; font-weight: 700; margin-top: 4px; }
+    .result-card .rc-sub { font-size: 0.7rem; color: var(--muted); margin-top: 3px; }
+    .rc-val.green { color: var(--green); }
+    .rc-val.red { color: var(--red); }
+    .rc-val.blue { color: var(--blue); }
+    .rc-val.yellow { color: var(--yellow); }
+
+    /* TRADE LEVELS TABLE */
+    .levels-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 8px; }
+    .levels-table th { background: var(--surface2); color: var(--muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.7px; padding: 8px 10px; text-align: left; }
+    .levels-table td { padding: 8px 10px; border-bottom: 1px solid var(--surface2); }
+    .levels-table tr:last-child td { border: none; }
+    .lev-green { color: var(--green); font-weight: 600; }
+    .lev-red { color: var(--red); font-weight: 600; }
+    .lev-blue { color: var(--blue); font-weight: 600; }
+    .lev-yellow { color: var(--yellow); font-weight: 600; }
+
+    /* DAILY LOSS TRACKER */
+    .loss-bar-wrap { background: var(--surface2); border-radius: 8px; overflow: hidden; height: 14px; margin: 10px 0; }
+    .loss-bar { height: 14px; border-radius: 8px; transition: width 0.4s, background 0.4s; }
+    .loss-bar-labels { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
+
+    /* ATR GUIDE */
+    .atr-guide { background: var(--surface2); border-radius: 8px; padding: 14px; margin-top: 14px; font-size: 0.8rem; line-height: 1.8; color: #c9d1d9; }
+    .atr-guide strong { color: var(--blue); }
+
+    /* ALERT BOX */
+    .alert { border-radius: 8px; padding: 12px 16px; font-size: 0.8rem; margin-top: 12px; line-height: 1.6; display: none; }
+    .alert.red { background: rgba(248,81,73,0.1); border: 1px solid rgba(248,81,73,0.3); color: #f85149; }
+    .alert.yellow { background: rgba(210,153,34,0.1); border: 1px solid rgba(210,153,34,0.3); color: #d29922; }
+    .alert.green { background: rgba(63,185,80,0.1); border: 1px solid rgba(63,185,80,0.3); color: #3fb950; }
+    .alert.show { display: block; }
+
+    /* JOURNAL TABS */
+    .sub-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .sub-tab { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-size: 0.78rem; cursor: pointer; transition: all 0.15s; }
+    .sub-tab.active { background: var(--blue); border-color: var(--blue); color: #0d1117; font-weight: 700; }
+    .sub-tab:hover:not(.active) { background: var(--surface2); }
+
+    /* JOURNAL TABLE */
+    .jtable-wrap { overflow-x: auto; }
+    .jtable { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    .jtable th { background: var(--surface2); color: var(--muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.7px; padding: 9px 10px; text-align: left; cursor: pointer; user-select: none; white-space: nowrap; }
+    .jtable th:hover { color: var(--text); }
+    .jtable td { padding: 8px 10px; border-bottom: 1px solid var(--surface2); white-space: nowrap; }
+    .jtable tr:hover td { background: rgba(88,166,255,0.04); }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.68rem; font-weight: 700; }
+    .pill.win { background: rgba(63,185,80,0.15); color: var(--green); }
+    .pill.loss { background: rgba(248,81,73,0.15); color: var(--red); }
+    .pill.wash { background: rgba(139,148,158,0.15); color: var(--muted); }
+    .pill.long { background: rgba(88,166,255,0.12); color: var(--blue); }
+    .pill.short { background: rgba(188,140,255,0.12); color: var(--purple); }
+
+    /* STATS GRID */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+    .stat-card .sl { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
+    .stat-card .sv { font-size: 1.3rem; font-weight: 700; margin-top: 4px; }
+    .stat-card .ss { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+
+    /* CHART CONTAINER */
+    .chart-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+    .chart-wrap h3 { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
+
+    /* SEARCH */
+    .search-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+    .search-row input { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; color: var(--text); font-size: 0.82rem; width: 200px; outline: none; }
+    .search-row input:focus { border-color: var(--blue); }
+    .search-row select { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; color: var(--text); font-size: 0.82rem; outline: none; }
+
+    /* DIVIDER */
+    .divider { border: none; border-top: 1px solid var(--surface2); margin: 16px 0; }
+
+    /* CHECKLIST */
+    .checklist { list-style: none; font-size: 0.82rem; line-height: 2; }
+    .checklist li::before { content: '□ '; color: var(--muted); }
+    .checklist li.ok::before { content: '✓ '; color: var(--green); }
+    .checklist li.warn::before { content: '⚠ '; color: var(--yellow); }
+    .checklist li.bad::before { content: '✗ '; color: var(--red); }
+
+    .section-head { font-size: 0.95rem; font-weight: 700; color: var(--text); border-bottom: 1px solid var(--surface2); padding-bottom: 8px; margin-bottom: 16px; }
+
+    .tip { background: rgba(88,166,255,0.07); border-left: 3px solid var(--blue); border-radius: 0 6px 6px 0; padding: 10px 14px; font-size: 0.78rem; color: #c9d1d9; margin-top: 10px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>ATR Position Sizer — Upscale 5K</h1>
+    <p>Real-time lot size · Stop-loss · Daily loss tracker · Trade journal analytics</p>
+  </div>
+  <div class="header-badges">
+    <div class="badge">Account: <span class="b">$5,000</span></div>
+    <div class="badge">Max Lev: <span class="b">×5</span></div>
+    <div class="badge">Storm WR: <span class="g">46.8%</span></div>
+    <div class="badge">Upscale WR: <span class="g">50%</span></div>
+    <div class="badge">Live Prices: <span id="price-status" class="g">fetching…</span></div>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="showPane('sizer', this)">Position Sizer</button>
+  <button class="tab" onclick="showPane('daily', this)">Daily Tracker</button>
+  <button class="tab" onclick="showPane('journal', this)">Trade Journal</button>
+  <button class="tab" onclick="showPane('analytics', this)">Analytics</button>
+  <button class="tab" onclick="showPane('guide', this)">ATR Guide</button>
+</div>
+
+<!-- ===================================================== POSITION SIZER -->
+<div id="sizer" class="pane active">
+  <div class="sizer-grid">
+
+    <!-- LEFT: INPUTS -->
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <h3>Account Settings</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Account Balance ($)</label>
+            <input type="number" id="accountBal" value="5000" min="100" step="50" oninput="onInputChange()"/>
+          </div>
+          <div class="form-group">
+            <label>Risk per Trade</label>
+            <div class="slider-row">
+              <input type="range" id="riskSlider" min="0.25" max="3" step="0.25" value="1" oninput="syncSlider('riskSlider','riskPct'); onInputChange()"/>
+              <span class="slider-val" id="riskPct">1%</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Max Leverage (×)</label>
+            <select id="maxLev" onchange="onInputChange()">
+              <option value="2">2×</option>
+              <option value="3">3×</option>
+              <option value="5" selected>5×</option>
+              <option value="10">10×</option>
+              <option value="20">20×</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Daily Loss Cap (%)</label>
+            <div class="slider-row">
+              <input type="range" id="dailyCapSlider" min="1" max="10" step="0.5" value="3" oninput="syncSlider('dailyCapSlider','dailyCapPct'); onInputChange()"/>
+              <span class="slider-val" id="dailyCapPct">3%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px;">
+        <h3>Instrument</h3>
+        <div class="form-group">
+          <label>Symbol</label>
+          <select id="symbol" onchange="onSymbolChange()">
+            <optgroup label="Crypto (your trades)">
+              <option value="BTC">BTC — Bitcoin</option>
+              <option value="SOL">SOL — Solana</option>
+              <option value="ETH">ETH — Ethereum</option>
+              <option value="TON">TON — TON Coin</option>
+              <option value="XRP">XRP — Ripple</option>
+              <option value="TRUMP">TRUMP</option>
+              <option value="FARTCOIN">FARTCOIN</option>
+              <option value="DASH">DASH</option>
+              <option value="ZEC">ZEC — Zcash</option>
+            </optgroup>
+            <optgroup label="Commodities (your trades)">
+              <option value="XAU">XAU — Gold</option>
+              <option value="UKOIL">UKOIL — Brent Crude</option>
+              <option value="USOIL">USOIL — WTI Crude</option>
+              <option value="XAG">XAG — Silver</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Current Price ($)</label>
+          <div class="price-row">
+            <input type="number" id="currentPrice" placeholder="Enter or fetch live price" step="any" oninput="onInputChange()"/>
+            <button class="fetch-btn" onclick="fetchPrice()">⟳ Live</button>
+          </div>
+          <div class="fetch-status" id="fetchStatus"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>ATR (14) — Daily</label>
+            <input type="number" id="atrInput" placeholder="e.g. 2500 for BTC" step="any" oninput="onInputChange()"/>
+          </div>
+          <div class="form-group">
+            <label>ATR Multiplier</label>
+            <select id="atrMult" onchange="onInputChange()">
+              <option value="1.0">1.0× (tight)</option>
+              <option value="1.5" selected>1.5× (standard)</option>
+              <option value="2.0">2.0× (wide)</option>
+              <option value="2.5">2.5× (volatile)</option>
+              <option value="3.0">3.0× (extreme)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Trade Direction</label>
+          <select id="direction" onchange="onInputChange()">
+            <option value="long">Long</option>
+            <option value="short">Short</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Target R:R</label>
+          <div class="slider-row">
+            <input type="range" id="rrSlider" min="1" max="4" step="0.25" value="1.5" oninput="syncSlider('rrSlider','rrVal'); onInputChange()"/>
+            <span class="slider-val" id="rrVal">1.5</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Today's P&amp;L so far ($)</label>
+          <input type="number" id="todayPnl" value="0" step="0.01" oninput="onInputChange()"/>
+        </div>
+        <button class="calc-btn" onclick="calculate()">Calculate Position</button>
+      </div>
+    </div>
+
+    <!-- RIGHT: RESULTS -->
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <h3>Position Size</h3>
+        <div class="result-grid">
+          <div class="result-card">
+            <div class="rc-label">Dollar Risk</div>
+            <div class="rc-val red" id="res-dollarRisk">—</div>
+            <div class="rc-sub" id="res-riskPct">— % of account</div>
+          </div>
+          <div class="result-card">
+            <div class="rc-label">Position Size ($)</div>
+            <div class="rc-val blue" id="res-posSize">—</div>
+            <div class="rc-sub" id="res-leverage">— × leverage</div>
+          </div>
+          <div class="result-card">
+            <div class="rc-label">Quantity (units)</div>
+            <div class="rc-val blue" id="res-qty">—</div>
+            <div class="rc-sub" id="res-qtyInfo">—</div>
+          </div>
+          <div class="result-card">
+            <div class="rc-label">Max Allowed Size</div>
+            <div class="rc-val yellow" id="res-maxSize">—</div>
+            <div class="rc-sub" id="res-maxInfo">at ×5 leverage</div>
+          </div>
+        </div>
+
+        <h3 style="margin-top:8px;">Trade Levels</h3>
+        <table class="levels-table">
+          <thead><tr><th>Level</th><th>Price</th><th>Distance</th><th>Distance %</th></tr></thead>
+          <tbody id="levels-body">
+            <tr><td colspan="4" style="color:var(--muted);text-align:center;padding:20px;">Enter values and click Calculate</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px;">
+        <h3>Daily Loss Remaining</h3>
+        <div id="daily-summary" style="font-size:0.82rem;color:var(--muted);margin-bottom:10px;">Enter today's P&L above to see status</div>
+        <div class="loss-bar-wrap">
+          <div class="loss-bar" id="loss-bar" style="width:0%;background:var(--green);"></div>
+        </div>
+        <div class="loss-bar-labels">
+          <span id="lb-used">$0 used</span>
+          <span id="lb-remaining">$150 remaining</span>
+          <span id="lb-cap">$150 cap</span>
+        </div>
+      </div>
+
+      <div id="trade-alert" class="alert"></div>
+
+      <div class="panel">
+        <h3>Pre-Trade Checklist</h3>
+        <ul class="checklist" id="checklist">
+          <li id="ck-rr">R:R ≥ 1.5:1</li>
+          <li id="ck-daily">Daily cap not breached</li>
+          <li id="ck-lev">Position within leverage limit</li>
+          <li id="ck-atr">ATR stop entered</li>
+          <li id="ck-price">Live price available</li>
+          <li id="ck-session">In prime trading window (Tue–Thu 08:00–11:30 EST)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================== DAILY TRACKER -->
+<div id="daily" class="pane">
+  <div class="section-head">Daily Loss Tracker</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
+    <div class="panel">
+      <h3>Add Trade Result</h3>
+      <div class="form-group"><label>P&amp;L ($)</label><input type="number" id="dt-pnl" placeholder="-50.00 or +80.00" step="0.01"/></div>
+      <div class="form-row">
+        <div class="form-group"><label>Symbol</label>
+          <select id="dt-symbol">
+            <option>BTC</option><option>SOL</option><option>ETH</option><option>TON</option><option>XAU</option><option>UKOIL</option><option>XRP</option><option>TRUMP</option><option>Other</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Status</label>
+          <select id="dt-status">
+            <option value="WIN">WIN</option><option value="LOSS">LOSS</option><option value="WASH">WASH</option>
+          </select>
+        </div>
+      </div>
+      <button class="calc-btn" onclick="addDailyTrade()">Add Trade</button>
+    </div>
+    <div class="panel">
+      <h3>Today's Summary</h3>
+      <div style="font-size:0.82rem;line-height:2.2;color:#c9d1d9;" id="dt-summary">
+        No trades logged today.
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Daily Cap Status</h3>
+      <div id="dt-cap-status" style="font-size:1.1rem;font-weight:700;color:var(--green);margin-bottom:10px;">✓ Within limits</div>
+      <div class="loss-bar-wrap" style="height:18px;">
+        <div class="loss-bar" id="dt-loss-bar" style="width:0%;background:var(--green);"></div>
+      </div>
+      <div class="loss-bar-labels">
+        <span id="dt-lb-used">$0 used</span>
+        <span id="dt-lb-remaining">$150 remaining</span>
+      </div>
+      <div style="margin-top:12px;font-size:0.75rem;color:var(--muted);">Daily cap: <span id="dt-lb-cap" style="color:var(--text);">$150 (3%)</span></div>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>Today's Trades</h3>
+    <div class="jtable-wrap">
+      <table class="jtable">
+        <thead><tr><th>#</th><th>Symbol</th><th>Status</th><th>P&amp;L</th><th>Running Total</th></tr></thead>
+        <tbody id="dt-table-body"><tr><td colspan="5" style="color:var(--muted);text-align:center;padding:20px;">No trades yet</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================== JOURNAL -->
+<div id="journal" class="pane">
+  <div class="section-head">Trade Journal</div>
+  <div class="sub-tabs">
+    <button class="sub-tab active" onclick="showSubTab('jUpscale',this)">Upscale (14)</button>
+    <button class="sub-tab" onclick="showSubTab('jStorm',this)">Storm (215)</button>
+  </div>
+
+  <div id="jUpscale">
+    <div class="stats-grid" id="upscale-kpis"></div>
+    <div class="search-row">
+      <input type="text" id="up-search" placeholder="Search symbol…" oninput="filterJTable('up')"/>
+      <select id="up-filter" onchange="filterJTable('up')">
+        <option value="">All</option><option value="WIN">Wins</option><option value="LOSS">Losses</option>
+      </select>
+    </div>
+    <div class="jtable-wrap"><table class="jtable" id="up-table">
+      <thead><tr>
+        <th onclick="sortTable('up','date')">Date</th>
+        <th onclick="sortTable('up','time')">Time</th>
+        <th onclick="sortTable('up','symbol')">Symbol</th>
+        <th onclick="sortTable('up','status')">Status</th>
+        <th onclick="sortTable('up','side')">Side</th>
+        <th onclick="sortTable('up','entry')">Entry</th>
+        <th onclick="sortTable('up','qty')">Qty</th>
+        <th onclick="sortTable('up','ret')">P&amp;L</th>
+        <th onclick="sortTable('up','ret_pct')">Return %</th>
+        <th onclick="sortTable('up','hold')">Hold</th>
+      </tr></thead>
+      <tbody id="up-body"></tbody>
+    </table></div>
+  </div>
+
+  <div id="jStorm" style="display:none;">
+    <div class="stats-grid" id="storm-kpis"></div>
+    <div class="search-row">
+      <input type="text" id="st-search" placeholder="Search symbol…" oninput="filterJTable('st')"/>
+      <select id="st-filter" onchange="filterJTable('st')">
+        <option value="">All</option><option value="WIN">Wins</option><option value="LOSS">Losses</option>
+      </select>
+    </div>
+    <div class="jtable-wrap"><table class="jtable" id="st-table">
+      <thead><tr>
+        <th onclick="sortTable('st','date')">Date</th>
+        <th onclick="sortTable('st','time')">Time</th>
+        <th onclick="sortTable('st','symbol')">Symbol</th>
+        <th onclick="sortTable('st','status')">Status</th>
+        <th onclick="sortTable('st','side')">Side</th>
+        <th onclick="sortTable('st','entry')">Entry</th>
+        <th onclick="sortTable('st','ret')">P&amp;L</th>
+        <th onclick="sortTable('st','ret_pct')">Return %</th>
+        <th onclick="sortTable('st','hold')">Hold</th>
+      </tr></thead>
+      <tbody id="st-body"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- ===================================================== ANALYTICS -->
+<div id="analytics" class="pane">
+  <div class="section-head">Performance Analytics</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+    <div class="chart-wrap"><h3>Upscale — Equity Curve</h3><div id="chart-upscale-equity" style="height:240px;"></div></div>
+    <div class="chart-wrap"><h3>Storm — Equity Curve (2026)</h3><div id="chart-storm-equity" style="height:240px;"></div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:20px;">
+    <div class="chart-wrap"><h3>Upscale — P&amp;L by Symbol</h3><div id="chart-up-sym" style="height:260px;"></div></div>
+    <div class="chart-wrap"><h3>Storm — P&amp;L by Symbol</h3><div id="chart-st-sym" style="height:260px;"></div></div>
+    <div class="chart-wrap"><h3>Storm — Day-of-Week Win Rate</h3><div id="chart-dow" style="height:260px;"></div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div class="chart-wrap"><h3>Return % Distribution — Storm</h3><div id="chart-dist" style="height:260px;"></div></div>
+    <div class="chart-wrap"><h3>Win Rate by Symbol — Storm (top 8)</h3><div id="chart-wr-sym" style="height:260px;"></div></div>
+  </div>
+</div>
+
+<!-- ===================================================== ATR GUIDE -->
+<div id="guide" class="pane">
+  <div class="section-head">ATR-Based Stop-Loss Guide</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+    <div class="panel">
+      <h3>How ATR Stops Work</h3>
+      <div class="atr-guide">
+        <strong>Formula:</strong><br/>
+        Stop Distance = ATR(14) × Multiplier<br/><br/>
+        <strong>Long:</strong> Stop = Anchor − (ATR × mult)<br/>
+        <strong>Short:</strong> Stop = Anchor + (ATR × mult)<br/><br/>
+        Where <em>Anchor</em> = recent swing low/high or key support/resistance — not just the entry price.<br/><br/>
+        <strong>Multipliers by regime:</strong><br/>
+        1.0–1.5× — Low vol / choppy market<br/>
+        1.5–2.0× — Normal trending market ✓ (your default)<br/>
+        2.0–2.5× — High vol / earnings / news<br/>
+        2.5–3.0× — Extreme events (FOMC, CPI)<br/><br/>
+        <strong>Then size the position so:</strong><br/>
+        Dollar Risk = Account × Risk% = Qty × Stop Distance
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Your Default ATR Values (approx.)</h3>
+      <table class="levels-table">
+        <thead><tr><th>Symbol</th><th>Typical ATR(14)</th><th>ATR %</th><th>Rec. Mult</th></tr></thead>
+        <tbody>
+          <tr><td>BTC</td><td class="lev-blue">$2,500–3,500</td><td>3–4%</td><td class="lev-yellow">1.5–2×</td></tr>
+          <tr><td>SOL</td><td class="lev-blue">$3–6</td><td>3–6%</td><td class="lev-yellow">1.5×</td></tr>
+          <tr><td>ETH</td><td class="lev-blue">$60–100</td><td>3–4%</td><td class="lev-yellow">1.5×</td></tr>
+          <tr><td>TON</td><td class="lev-blue">$0.08–0.15</td><td>4–8%</td><td class="lev-yellow">2×</td></tr>
+          <tr><td>XAU</td><td class="lev-blue">$60–120</td><td>1.3–2.5%</td><td class="lev-yellow">1.5×</td></tr>
+          <tr><td>UKOIL</td><td class="lev-blue">$2–4</td><td>2–4%</td><td class="lev-yellow">1.5–2×</td></tr>
+          <tr><td>XRP</td><td class="lev-blue">$0.10–0.20</td><td>4–7%</td><td class="lev-yellow">2×</td></tr>
+        </tbody>
+      </table>
+      <div class="tip">These are estimates. Always look at the last 14 candles on the daily chart to get the current ATR before entering a trade. The sizer will calculate everything once you enter the ATR.</div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div class="panel">
+      <h3>Why Your Stops Are Getting Hit</h3>
+      <div style="font-size:0.82rem;line-height:1.9;color:#c9d1d9;">
+        Your avg loss hold time is <span style="color:var(--red);">3.3h vs 1.6h</span> for winners — you're holding losers twice as long.<br/><br/>
+        <strong style="color:var(--yellow);">Root cause:</strong> Fixed 5% stops placed at arbitrary % from entry — not anchored to structure. This means:<br/>
+        — Stops too tight on low-vol days → random stop-out<br/>
+        — Stops too wide on high-vol days → losses larger than intended<br/><br/>
+        <strong style="color:var(--green);">Fix with ATR:</strong><br/>
+        1. Find ATR(14) on daily chart<br/>
+        2. Place stop at swing low/high<br/>
+        3. Confirm that distance ≤ 2× ATR<br/>
+        4. If wider → skip the trade<br/>
+        5. Size so stop distance = your dollar risk cap
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Time-Based Exit Rule (Missing from your system)</h3>
+      <div style="font-size:0.82rem;line-height:1.9;color:#c9d1d9;">
+        Your worst losses are trades held 5–13 hours beyond the intended hold.<br/><br/>
+        <strong style="color:var(--blue);">Add this rule immediately:</strong><br/>
+        If a trade has not reached 1R in <span style="color:var(--yellow);">2× your avg win hold (3.2h)</span>, close it at market.<br/><br/>
+        <strong>Upscale rule:</strong> Close any trade not at 1R within 3 hours.<br/>
+        <strong>Storm rule:</strong> Close any trade not at 1R within 1.5 days.<br/><br/>
+        This single rule would have prevented your –$234 loss (held 13h) and –$189 loss (held 5h from a 28-min win setup).
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================================================== DATA
+const UPSCALE = [{"date":"2026-04-15","time":"09:38","symbol":"SOL","market":"CRYPTO","status":"LOSS","side":"LONG","qty":56.3983,"entry":84.455,"ret":-40.68,"ret_pct":-0.85,"hold":"1 HR"},{"date":"2026-04-15","time":"07:05","symbol":"FARTCOIN","market":"CRYPTO","status":"LOSS","side":"LONG","qty":23679.0,"entry":0.202,"ret":-61.45,"ret_pct":-1.28,"hold":"16 MIN"},{"date":"2026-04-14","time":"09:56","symbol":"BTC","market":"CRYPTO","status":"LOSS","side":"SHORT","qty":0.064393,"entry":74823.1,"ret":-40.43,"ret_pct":-0.84,"hold":"48 MIN"},{"date":"2026-04-14","time":"08:42","symbol":"BTC","market":"CRYPTO","status":"WIN","side":"LONG","qty":0.159669,"entry":74937.8,"ret":63.9,"ret_pct":0.53,"hold":"50 MIN"},{"date":"2026-04-14","time":"07:37","symbol":"BTC","market":"CRYPTO","status":"LOSS","side":"SHORT","qty":0.162307,"entry":74397.1,"ret":-89.62,"ret_pct":-0.74,"hold":"13 HRS"},{"date":"2026-04-13","time":"09:08","symbol":"BTC","market":"CRYPTO","status":"WIN","side":"LONG","qty":0.134364,"entry":71776.8,"ret":23.31,"ret_pct":0.24,"hold":"28 MIN"},{"date":"2026-04-13","time":"08:06","symbol":"TON","market":"CRYPTO","status":"LOSS","side":"SHORT","qty":7108.37,"entry":1.406,"ret":-189.56,"ret_pct":-1.9,"hold":"5 HRS"},{"date":"2026-04-13","time":"07:50","symbol":"BTC","market":"CRYPTO","status":"LOSS","side":"SHORT","qty":0.141568,"entry":70609.0,"ret":-153.16,"ret_pct":-1.53,"hold":"5 HRS"},{"date":"2026-04-12","time":"15:11","symbol":"SOL","market":"CRYPTO","status":"WIN","side":"LONG","qty":151.495,"entry":82.478,"ret":13.01,"ret_pct":0.1,"hold":"31 MIN"},{"date":"2026-04-12","time":"14:08","symbol":"BTC","market":"CRYPTO","status":"LOSS","side":"LONG","qty":0.351441,"entry":71135.7,"ret":-27.23,"ret_pct":-0.11,"hold":"2 HRS"},{"date":"2026-04-12","time":"11:02","symbol":"BTC","market":"CRYPTO","status":"WIN","side":"SHORT","qty":0.175778,"entry":71083.9,"ret":18.02,"ret_pct":0.14,"hold":"4 HRS"},{"date":"2026-04-12","time":"11:01","symbol":"DASH","market":"CRYPTO","status":"WIN","side":"SHORT","qty":87.5742,"entry":42.347,"ret":65.27,"ret_pct":1.76,"hold":"1 HR"},{"date":"2026-04-11","time":"13:36","symbol":"SOL","market":"CRYPTO","status":"WIN","side":"LONG","qty":58.0459,"entry":86.104,"ret":2.11,"ret_pct":0.04,"hold":"2 MIN"},{"date":"2026-04-11","time":"13:30","symbol":"TON","market":"CRYPTO","status":"WIN","side":"LONG","qty":686.785,"entry":1.437,"ret":50.47,"ret_pct":5.11,"hold":"2 HRS"}];
+
+const STORM_SAMPLE = [{"date":"2026-04-13","time":"17:37","symbol":"BTC","status":"LOSS","side":"SHORT","entry":74704.3,"ret":-1.43,"ret_pct":-1.32,"hold":"14 HRS"},{"date":"2026-04-13","time":"17:35","symbol":"SOL","status":"LOSS","side":"LONG","entry":86.702,"ret":-1.08,"ret_pct":-0.89,"hold":"1 HR"},{"date":"2026-04-13","time":"08:09","symbol":"TON","status":"LOSS","side":"LONG","entry":1.432,"ret":-4.54,"ret_pct":-2.19,"hold":"1 DAY"},{"date":"2026-04-12","time":"11:41","symbol":"SOL","status":"WIN","side":"LONG","entry":81.923,"ret":2.67,"ret_pct":1.65,"hold":"21 HRS"},{"date":"2026-04-11","time":"14:11","symbol":"TON","status":"WIN","side":"SHORT","entry":1.454,"ret":0.45,"ret_pct":0.53,"hold":"1 HR"},{"date":"2026-04-11","time":"14:08","symbol":"SOL","status":"LOSS","side":"LONG","entry":85.812,"ret":-1.71,"ret_pct":-1.01,"hold":"4 HRS"},{"date":"2026-04-11","time":"12:04","symbol":"TON","status":"WIN","side":"LONG","entry":1.465,"ret":2.17,"ret_pct":2.01,"hold":"41 MIN"},{"date":"2026-04-11","time":"11:25","symbol":"TON","status":"WIN","side":"LONG","entry":1.432,"ret":2.36,"ret_pct":2.3,"hold":"36 MIN"},{"date":"2026-04-10","time":"09:36","symbol":"BTC","status":"WIN","side":"LONG","entry":72703.9,"ret":0.58,"ret_pct":0.57,"hold":"2 HRS"},{"date":"2026-04-10","time":"00:12","symbol":"SOL","status":"WIN","side":"LONG","entry":83.67,"ret":2.6,"ret_pct":1.62,"hold":"9 HRS"},{"date":"2026-04-09","time":"07:43","symbol":"BTC","status":"LOSS","side":"SHORT","entry":70849.0,"ret":-2.91,"ret_pct":-2.91,"hold":"9 HRS"},{"date":"2026-04-08","time":"23:06","symbol":"SOL","status":"LOSS","side":"SHORT","entry":81.877,"ret":-2.49,"ret_pct":-2.82,"hold":"11 HRS"},{"date":"2026-04-07","time":"18:56","symbol":"BTC","status":"WIN","side":"SHORT","entry":71607.7,"ret":0.93,"ret_pct":0.76,"hold":"1 DAY"},{"date":"2026-04-07","time":"03:43","symbol":"XAU","status":"WIN","side":"LONG","entry":4667.54,"ret":3.5,"ret_pct":2.92,"hold":"14 HRS"},{"date":"2026-04-07","time":"02:57","symbol":"SOL","status":"LOSS","side":"LONG","entry":79.9,"ret":-1.57,"ret_pct":-1.35,"hold":"2 HRS"},{"date":"2026-04-07","time":"00:24","symbol":"ZEC","status":"WIN","side":"LONG","entry":265.741,"ret":2.65,"ret_pct":1.38,"hold":"3 HRS"},{"date":"2026-04-06","time":"19:59","symbol":"ETH","status":"LOSS","side":"SHORT","entry":2100.5,"ret":-1.4,"ret_pct":-1.19,"hold":"7 HRS"},{"date":"2026-04-06","time":"18:39","symbol":"ZEC","status":"WIN","side":"LONG","entry":253.06,"ret":4.0,"ret_pct":5.11,"hold":"5 HRS"},{"date":"2026-04-06","time":"17:08","symbol":"BTC","status":"LOSS","side":"SHORT","entry":68492.4,"ret":-2.7,"ret_pct":-2.58,"hold":"22 HRS"},{"date":"2026-04-05","time":"12:43","symbol":"BTC","status":"WIN","side":"LONG","entry":67409.5,"ret":1.49,"ret_pct":1.69,"hold":"5 HRS"},{"date":"2026-03-15","time":"21:56","symbol":"XAU","status":"LOSS","side":"LONG","entry":4920.7,"ret":-10.21,"ret_pct":-4.98,"hold":"3 DAYS"},{"date":"2026-03-15","time":"21:50","symbol":"UKOIL","status":"WIN","side":"LONG","entry":101.523,"ret":6.63,"ret_pct":6.31,"hold":"3 DAYS"},{"date":"2026-03-03","time":"18:21","symbol":"XAU","status":"WIN","side":"LONG","entry":5134.349,"ret":3.94,"ret_pct":1.3,"hold":"7 DAYS"},{"date":"2026-03-02","time":"13:54","symbol":"UKOIL","status":"WIN","side":"LONG","entry":78.855,"ret":3.23,"ret_pct":4.87,"hold":"1 DAY"},{"date":"2026-03-01","time":"16:58","symbol":"XAU","status":"LOSS","side":"LONG","entry":5357.292,"ret":-4.23,"ret_pct":-2.11,"hold":"1 DAY"},{"date":"2026-02-27","time":"18:22","symbol":"BTC","status":"WIN","side":"SHORT","entry":65915.96,"ret":3.23,"ret_pct":2.69,"hold":"5 HRS"},{"date":"2026-02-26","time":"17:29","symbol":"BTC","status":"WIN","side":"SHORT","entry":67260.0,"ret":5.15,"ret_pct":2.59,"hold":"19 HRS"},{"date":"2026-02-25","time":"18:37","symbol":"BTC","status":"WIN","side":"SHORT","entry":68375.0,"ret":3.18,"ret_pct":1.37,"hold":"17 HRS"},{"date":"2026-02-24","time":"18:31","symbol":"XAU","status":"WIN","side":"LONG","entry":5183.24,"ret":2.48,"ret_pct":2.46,"hold":"5 DAYS"},{"date":"2026-02-20","time":"16:28","symbol":"BTC","status":"LOSS","side":"LONG","entry":68011.4,"ret":-3.22,"ret_pct":-1.98,"hold":"2 DAYS"}];
+
+const UP_SYM_STATS = {"BTC":{"count":8,"wins":3,"losses":5,"wr":37.5,"avg_win":35.08,"avg_loss":-70.0,"total_pnl":-316.22,"avg_ret_pct":-0.53,"avg_entry":73095.36},"SOL":{"count":3,"wins":2,"losses":1,"wr":66.7,"avg_win":7.56,"avg_loss":-40.68,"total_pnl":-25.56,"avg_ret_pct":0.0,"avg_entry":84.35},"TON":{"count":2,"wins":1,"losses":1,"wr":50.0,"avg_win":50.47,"avg_loss":-189.56,"total_pnl":-139.09,"avg_ret_pct":1.61,"avg_entry":1.42},"FARTCOIN":{"count":1,"wins":0,"losses":1,"wr":0.0,"avg_win":0,"avg_loss":-61.45,"total_pnl":-61.45,"avg_ret_pct":-1.28,"avg_entry":0.202},"DASH":{"count":1,"wins":1,"losses":0,"wr":100.0,"avg_win":65.27,"avg_loss":0,"total_pnl":65.27,"avg_ret_pct":1.76,"avg_entry":42.35}};
+
+const ST_SYM_STATS = {"BTC":{"count":75,"wins":37,"losses":38,"wr":49.3,"avg_win":4.05,"avg_loss":-5.29,"total_pnl":-51.27},"TON":{"count":30,"wins":10,"losses":20,"wr":33.3,"avg_win":3.1,"avg_loss":-2.81,"total_pnl":-15.07},"XAU":{"count":28,"wins":14,"losses":14,"wr":50.0,"avg_win":3.5,"avg_loss":-3.08,"total_pnl":-8.07},"TRUMP":{"count":19,"wins":10,"losses":9,"wr":52.6,"avg_win":3.5,"avg_loss":-2.3,"total_pnl":14.49},"SOL":{"count":10,"wins":4,"losses":6,"wr":40.0,"avg_win":3.2,"avg_loss":-2.5,"total_pnl":-0.24},"ETH":{"count":9,"wins":4,"losses":5,"wr":44.4,"avg_win":3.9,"avg_loss":-2.3,"total_pnl":3.86},"XRP":{"count":8,"wins":4,"losses":4,"wr":50.0,"avg_win":1.8,"avg_loss":-1.55,"total_pnl":0.51},"UKOIL":{"count":7,"wins":4,"losses":3,"wr":57.1,"avg_win":4.0,"avg_loss":-2.0,"total_pnl":8.48}};
+
+const UPSCALE_DOW = {"Wednesday":{"count":2,"wr":0.0,"total_pnl":-102.13,"avg_pnl":-51.06},"Tuesday":{"count":3,"wr":33.3,"total_pnl":-66.15,"avg_pnl":-22.05},"Monday":{"count":3,"wr":33.3,"total_pnl":-319.41,"avg_pnl":-106.47},"Sunday":{"count":4,"wr":75.0,"total_pnl":69.07,"avg_pnl":17.27},"Saturday":{"count":2,"wr":100.0,"total_pnl":52.58,"avg_pnl":26.29}};
+
+// Live prices cache
+const PRICES = {};
+
+// Daily tracker state
+let dailyTrades = [];
+
+// Sort state
+let sortState = {up:{col:'date',asc:false}, st:{col:'date',asc:false}};
+
+// ===================================================== PRICE FETCHING
+async function fetchPrice() {
+  const sym = document.getElementById('symbol').value;
+  const statusEl = document.getElementById('fetchStatus');
+  statusEl.textContent = 'Fetching…';
+  statusEl.style.color = 'var(--muted)';
+  try {
+    const price = await getLivePrice(sym);
+    if (price) {
+      document.getElementById('currentPrice').value = price;
+      statusEl.textContent = `✓ Live price: $${price.toLocaleString()} (CoinGecko)`;
+      statusEl.style.color = 'var(--green)';
+      PRICES[sym] = price;
+      onInputChange();
+    } else {
+      statusEl.textContent = 'Price not found — enter manually';
+      statusEl.style.color = 'var(--yellow)';
+    }
+  } catch(e) {
+    statusEl.textContent = 'Fetch failed — enter manually';
+    statusEl.style.color = 'var(--red)';
+  }
+}
+
+async function getLivePrice(sym) {
+  const cgMap = {
+    BTC:'bitcoin', SOL:'solana', ETH:'ethereum', TON:'the-open-network',
+    XRP:'ripple', TRUMP:'maga', FARTCOIN:'fartcoin', DASH:'dash',
+    ZEC:'zcash', XAU:'gold', UKOIL:'brent-oil', USOIL:'wti-crude-oil',
+    XAG:'silver'
+  };
+  const id = cgMap[sym];
+  if (!id) return null;
+  // For metals/oil use CoinGecko metals endpoint fallback
+  if (['XAU','UKOIL','USOIL','XAG'].includes(sym)) {
+    // Use metals-api proxy or fallback
+    const resp = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`);
+    if (!resp.ok) throw new Error();
+    const data = await resp.json();
+    return data[id]?.usd || null;
+  }
+  const resp = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`);
+  if (!resp.ok) throw new Error();
+  const data = await resp.json();
+  return data[id]?.usd || null;
+}
+
+async function fetchAllPrices() {
+  const syms = ['BTC','SOL','ETH','TON','XRP'];
+  const statusEl = document.getElementById('price-status');
+  try {
+    const ids = syms.map(s => ({BTC:'bitcoin',SOL:'solana',ETH:'ethereum',TON:'the-open-network',XRP:'ripple'}[s])).join(',');
+    const resp = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
+    const data = await resp.json();
+    PRICES.BTC = data['bitcoin']?.usd;
+    PRICES.SOL = data['solana']?.usd;
+    PRICES.ETH = data['ethereum']?.usd;
+    PRICES.TON = data['the-open-network']?.usd;
+    PRICES.XRP = data['ripple']?.usd;
+    statusEl.textContent = `live ✓`;
+    statusEl.style.color = 'var(--green)';
+  } catch(e) {
+    statusEl.textContent = 'offline';
+    statusEl.style.color = 'var(--yellow)';
+  }
+}
+
+function onSymbolChange() {
+  const sym = document.getElementById('symbol').value;
+  if (PRICES[sym]) {
+    document.getElementById('currentPrice').value = PRICES[sym];
+  } else {
+    document.getElementById('currentPrice').value = '';
+  }
+  // Suggest ATR
+  const atrSuggestions = {
+    BTC:3000, SOL:5, ETH:80, TON:0.12, XRP:0.15,
+    XAU:80, UKOIL:3, USOIL:3, XAG:2, TRUMP:5,
+    FARTCOIN:0.02, DASH:3, ZEC:20
+  };
+  if (atrSuggestions[sym]) {
+    document.getElementById('atrInput').placeholder = `Typical: ~${atrSuggestions[sym]}`;
+  }
+  onInputChange();
+}
+
+// ===================================================== SLIDER SYNC
+function syncSlider(sliderId, displayId) {
+  const val = parseFloat(document.getElementById(sliderId).value);
+  const el = document.getElementById(displayId);
+  if (displayId === 'rrVal') el.textContent = val.toFixed(2);
+  else el.textContent = val + '%';
+}
+
+// ===================================================== CALCULATE
+function onInputChange() { /* debounce-free live update */ calculate(true); }
+
+function calculate(silent=false) {
+  const balance = parseFloat(document.getElementById('accountBal').value) || 5000;
+  const riskPct = parseFloat(document.getElementById('riskSlider').value) / 100;
+  const maxLev = parseFloat(document.getElementById('maxLev').value);
+  const dailyCapPct = parseFloat(document.getElementById('dailyCapSlider').value) / 100;
+  const price = parseFloat(document.getElementById('currentPrice').value);
+  const atr = parseFloat(document.getElementById('atrInput').value);
+  const mult = parseFloat(document.getElementById('atrMult').value);
+  const direction = document.getElementById('direction').value;
+  const rr = parseFloat(document.getElementById('rrSlider').value);
+  const todayPnl = parseFloat(document.getElementById('todayPnl').value) || 0;
+
+  const dollarRisk = balance * riskPct;
+  const dailyCap = balance * dailyCapPct;
+  const dailyRemaining = dailyCap + todayPnl; // todayPnl is negative if losing
+  const maxSize = balance * maxLev;
+
+  // Update daily bar
+  updateDailyBar(todayPnl, dailyCap, balance);
+
+  if (!price || !atr) {
+    updateChecklist({price:!!price, atr:!!atr, rr, dailyRemaining, dollarRisk, maxSize});
+    return;
+  }
+
+  const stopDist = atr * mult;
+  const stopPrice = direction === 'long' ? price - stopDist : price + stopDist;
+  const tpDist = stopDist * rr;
+  const tpPrice = direction === 'long' ? price + tpDist : price - tpDist;
+
+  const qty = dollarRisk / stopDist;
+  const posSize = qty * price;
+  const leverage = posSize / balance;
+  const stopPct = (stopDist / price) * 100;
+  const tpPct = (tpDist / price) * 100;
+
+  // Update results
+  document.getElementById('res-dollarRisk').textContent = `$${dollarRisk.toFixed(2)}`;
+  document.getElementById('res-riskPct').textContent = `${(riskPct*100).toFixed(2)}% of $${balance.toLocaleString()}`;
+  document.getElementById('res-posSize').textContent = `$${posSize.toFixed(2)}`;
+  document.getElementById('res-leverage').textContent = `${leverage.toFixed(2)}× leverage`;
+  document.getElementById('res-qty').textContent = qty < 1 ? qty.toFixed(6) : qty.toFixed(4);
+  document.getElementById('res-qtyInfo').textContent = `${document.getElementById('symbol').value} units`;
+  document.getElementById('res-maxSize').textContent = `$${maxSize.toLocaleString()}`;
+  document.getElementById('res-maxInfo').textContent = `at ×${maxLev} leverage`;
+
+  // Leverage color
+  const levEl = document.getElementById('res-posSize');
+  levEl.className = 'rc-val ' + (leverage > maxLev ? 'red' : leverage > maxLev*0.8 ? 'yellow' : 'blue');
+
+  // Levels table
+  const tbody = document.getElementById('levels-body');
+  const fmt = (n) => n > 10 ? `$${n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}` : `$${n.toFixed(6)}`;
+  tbody.innerHTML = `
+    <tr><td>Entry</td><td class="lev-blue">${fmt(price)}</td><td>—</td><td>—</td></tr>
+    <tr><td>Stop Loss</td><td class="lev-red">${fmt(stopPrice)}</td><td class="lev-red">-${fmt(stopDist)}</td><td class="lev-red">-${stopPct.toFixed(2)}%</td></tr>
+    <tr><td>Take Profit</td><td class="lev-green">${fmt(tpPrice)}</td><td class="lev-green">+${fmt(tpDist)}</td><td class="lev-green">+${tpPct.toFixed(2)}%</td></tr>
+    <tr><td>ATR Distance</td><td class="lev-yellow">${fmt(atr)}</td><td>×${mult}</td><td>${((atr/price)*100).toFixed(2)}% of price</td></tr>
+    <tr><td>Dollar at Stop</td><td class="lev-red">-$${dollarRisk.toFixed(2)}</td><td colspan="2" style="color:var(--muted);">= ${(riskPct*100).toFixed(2)}% account</td></tr>
+    <tr><td>Dollar at TP</td><td class="lev-green">+$${(dollarRisk*rr).toFixed(2)}</td><td colspan="2" style="color:var(--muted);">${rr.toFixed(2)}R = ${(riskPct*100*rr).toFixed(2)}% account</td></tr>
+  `;
+
+  // Alert
+  const alertEl = document.getElementById('trade-alert');
+  alertEl.className = 'alert';
+  alertEl.style.display = 'none';
+  if (dailyRemaining < dollarRisk) {
+    alertEl.textContent = `⛔ Daily loss cap ($${dailyCap.toFixed(0)}) nearly/fully reached. Remaining: $${dailyRemaining.toFixed(2)}. Do not trade.`;
+    alertEl.className = 'alert red show'; alertEl.style.display = 'block';
+  } else if (leverage > maxLev) {
+    alertEl.textContent = `⚠ Position size ($${posSize.toFixed(0)}) exceeds ${maxLev}× leverage limit ($${maxSize.toFixed(0)}). Reduce risk% or widen stop multiplier.`;
+    alertEl.className = 'alert red show'; alertEl.style.display = 'block';
+  } else if (rr < 1.5) {
+    alertEl.textContent = `⚠ R:R of ${rr.toFixed(2)} is below the 1.5 minimum. Adjust your target or skip this setup.`;
+    alertEl.className = 'alert yellow show'; alertEl.style.display = 'block';
+  } else {
+    alertEl.textContent = `✓ Setup looks valid. Dollar risk $${dollarRisk.toFixed(2)}, R:R ${rr.toFixed(2)}:1, ${leverage.toFixed(2)}× leverage. Within all limits.`;
+    alertEl.className = 'alert green show'; alertEl.style.display = 'block';
+  }
+
+  updateChecklist({price:true, atr:true, rr, dailyRemaining, dollarRisk, maxSize, posSize, maxLev});
+}
+
+function updateDailyBar(todayPnl, dailyCap, balance) {
+  const used = Math.max(0, -todayPnl);
+  const remaining = Math.max(0, dailyCap + todayPnl);
+  const pct = Math.min(100, (used / dailyCap) * 100);
+  const bar = document.getElementById('loss-bar');
+  bar.style.width = pct + '%';
+  bar.style.background = pct < 50 ? 'var(--green)' : pct < 80 ? 'var(--yellow)' : 'var(--red)';
+  document.getElementById('lb-used').textContent = `$${used.toFixed(2)} used`;
+  document.getElementById('lb-remaining').textContent = `$${remaining.toFixed(2)} remaining`;
+  document.getElementById('lb-cap').textContent = `$${dailyCap.toFixed(0)} cap`;
+  document.getElementById('daily-summary').textContent =
+    used === 0 ? `No losses today. Full $${dailyCap.toFixed(0)} daily cap available.` :
+    pct >= 100 ? `⛔ Daily cap REACHED. Stop trading for today.` :
+    `$${used.toFixed(2)} used of $${dailyCap.toFixed(0)} cap (${pct.toFixed(0)}%). $${remaining.toFixed(2)} remaining.`;
+  document.getElementById('daily-summary').style.color = pct >= 100 ? 'var(--red)' : pct >= 80 ? 'var(--yellow)' : 'var(--muted)';
+}
+
+function updateChecklist({price,atr,rr,dailyRemaining,dollarRisk,maxSize,posSize,maxLev}) {
+  const set = (id, state) => {
+    const el = document.getElementById(id);
+    el.className = state === 'ok' ? 'ok' : state === 'warn' ? 'warn' : state === 'bad' ? 'bad' : '';
+  };
+  set('ck-rr', rr >= 1.5 ? 'ok' : rr >= 1.2 ? 'warn' : 'bad');
+  set('ck-daily', dailyRemaining > dollarRisk*2 ? 'ok' : dailyRemaining > dollarRisk ? 'warn' : 'bad');
+  set('ck-lev', posSize && maxSize ? (posSize <= maxSize ? 'ok' : 'bad') : '');
+  set('ck-atr', atr ? 'ok' : '');
+  set('ck-price', price ? 'ok' : '');
+  const now = new Date();
+  const h = now.getUTCHours() - 5; // EST
+  const dow = now.getUTCDay(); // 0=Sun, 2=Tue, 4=Thu
+  const inPrime = dow >= 2 && dow <= 4 && h >= 8 && h < 11.5;
+  set('ck-session', inPrime ? 'ok' : 'warn');
+}
+
+// ===================================================== DAILY TRACKER
+function addDailyTrade() {
+  const pnl = parseFloat(document.getElementById('dt-pnl').value);
+  const sym = document.getElementById('dt-symbol').value;
+  const status = document.getElementById('dt-status').value;
+  if (isNaN(pnl)) return;
+  dailyTrades.push({pnl, sym, status, time: new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})});
+  document.getElementById('dt-pnl').value = '';
+  renderDailyTracker();
+}
+
+function renderDailyTracker() {
+  const balance = parseFloat(document.getElementById('accountBal').value) || 5000;
+  const dailyCapPct = parseFloat(document.getElementById('dailyCapSlider').value) / 100;
+  const dailyCap = balance * dailyCapPct;
+  const totalPnl = dailyTrades.reduce((s,t) => s+t.pnl, 0);
+  const totalLoss = Math.max(0, -totalPnl);
+  const pct = Math.min(100, (totalLoss/dailyCap)*100);
+  const wins = dailyTrades.filter(t=>t.status==='WIN').length;
+  const losses = dailyTrades.filter(t=>t.status==='LOSS').length;
+
+  document.getElementById('dt-summary').innerHTML =
+    `Trades: <b>${dailyTrades.length}</b> &nbsp; W/L: <b style="color:var(--green)">${wins}</b>/<b style="color:var(--red)">${losses}</b><br/>
+     Total P&L: <b style="color:${totalPnl>=0?'var(--green)':'var(--red)'}">${totalPnl>=0?'+':''}$${totalPnl.toFixed(2)}</b><br/>
+     Loss used: <b>$${totalLoss.toFixed(2)}</b> / $${dailyCap.toFixed(0)}<br/>
+     Remaining: <b style="color:${pct>80?'var(--red)':pct>50?'var(--yellow)':'var(--green)'}">$${Math.max(0,dailyCap-totalLoss).toFixed(2)}</b>`;
+
+  const bar = document.getElementById('dt-loss-bar');
+  bar.style.width = pct+'%';
+  bar.style.background = pct<50?'var(--green)':pct<80?'var(--yellow)':'var(--red)';
+  document.getElementById('dt-lb-used').textContent = `$${totalLoss.toFixed(2)} used`;
+  document.getElementById('dt-lb-remaining').textContent = `$${Math.max(0,dailyCap-totalLoss).toFixed(2)} rem`;
+  document.getElementById('dt-lb-cap').textContent = `$${dailyCap.toFixed(0)} (${(dailyCapPct*100).toFixed(1)}%)`;
+
+  const capEl = document.getElementById('dt-cap-status');
+  capEl.textContent = pct >= 100 ? '⛔ STOP TRADING — Cap hit' : pct >= 80 ? '⚠ Warning — Near limit' : '✓ Within limits';
+  capEl.style.color = pct>=100?'var(--red)':pct>=80?'var(--yellow)':'var(--green)';
+
+  // Table
+  let running = 0;
+  const tbody = document.getElementById('dt-table-body');
+  tbody.innerHTML = dailyTrades.length === 0
+    ? '<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:20px;">No trades yet</td></tr>'
+    : dailyTrades.map((t,i) => {
+        running += t.pnl;
+        return `<tr>
+          <td>${i+1}</td>
+          <td><b>${t.sym}</b> <span style="color:var(--muted);font-size:0.7rem;">${t.time}</span></td>
+          <td><span class="pill ${t.status.toLowerCase()}">${t.status}</span></td>
+          <td style="color:${t.pnl>=0?'var(--green)':'var(--red)'};font-weight:700;">${t.pnl>=0?'+':''}$${t.pnl.toFixed(2)}</td>
+          <td style="color:${running>=0?'var(--green)':'var(--red)'}">${running>=0?'+':''}$${running.toFixed(2)}</td>
+        </tr>`;
+      }).join('');
+
+  // Also update main sizer's today pnl
+  document.getElementById('todayPnl').value = totalPnl.toFixed(2);
+  calculate(true);
+}
+
+// ===================================================== JOURNAL TABLE
+function renderJournalTable(account, data, tbodyId) {
+  const search = document.getElementById(`${account}-search`)?.value.toLowerCase() || '';
+  const filter = document.getElementById(`${account}-filter`)?.value || '';
+  const sorted = [...data].filter(t =>
+    (!search || t.symbol.toLowerCase().includes(search)) &&
+    (!filter || t.status === filter)
+  ).sort((a,b) => {
+    const s = sortState[account];
+    let av = a[s.col], bv = b[s.col];
+    if (typeof av === 'string') av = av.toLowerCase();
+    if (typeof bv === 'string') bv = bv.toLowerCase();
+    return s.asc ? (av>bv?1:-1) : (av<bv?1:-1);
+  });
+
+  const tbody = document.getElementById(tbodyId);
+  tbody.innerHTML = sorted.map(t => `
+    <tr>
+      <td>${t.date}</td>
+      <td style="color:var(--muted);">${t.time}</td>
+      <td><b>${t.symbol}</b></td>
+      <td><span class="pill ${t.status.toLowerCase()}">${t.status}</span></td>
+      <td><span class="pill ${t.side.toLowerCase()}">${t.side}</span></td>
+      <td style="color:var(--muted);">$${t.entry?.toLocaleString(undefined,{maximumFractionDigits:4}) ?? '—'}</td>
+      ${account==='up' ? `<td style="color:var(--muted);">${t.qty?.toFixed(4) ?? '—'}</td>` : ''}
+      <td style="color:${t.ret>=0?'var(--green)':'var(--red)'};font-weight:700;">${t.ret>=0?'+':''}$${t.ret.toFixed(2)}</td>
+      <td style="color:${t.ret_pct>=0?'var(--green)':'var(--red)'}">${t.ret_pct>=0?'+':''}${t.ret_pct?.toFixed(2)}%</td>
+      <td style="color:var(--muted);">${t.hold}</td>
+    </tr>
+  `).join('');
+}
+
+function filterJTable(account) {
+  if (account === 'up') renderJournalTable('up', UPSCALE, 'up-body');
+  else renderJournalTable('st', STORM_SAMPLE, 'st-body');
+}
+
+function sortTable(account, col) {
+  if (sortState[account].col === col) sortState[account].asc = !sortState[account].asc;
+  else { sortState[account].col = col; sortState[account].asc = false; }
+  filterJTable(account);
+}
+
+function renderKPIs(containerId, wins, losses, avgWin, avgLoss, totalPnl, wr) {
+  document.getElementById(containerId).innerHTML = `
+    <div class="stat-card"><div class="sl">Win Rate</div><div class="sv" style="color:${wr>=50?'var(--green)':'var(--red)'}">${wr}%</div><div class="ss">${wins}W / ${losses}L</div></div>
+    <div class="stat-card"><div class="sl">Avg Win</div><div class="sv" style="color:var(--green)">+$${avgWin.toFixed(2)}</div></div>
+    <div class="stat-card"><div class="sl">Avg Loss</div><div class="sv" style="color:var(--red)">$${avgLoss.toFixed(2)}</div></div>
+    <div class="stat-card"><div class="sl">Total P&L</div><div class="sv" style="color:${totalPnl>=0?'var(--green)':'var(--red)'}">${totalPnl>=0?'+':''}$${totalPnl.toFixed(2)}</div></div>
+    <div class="stat-card"><div class="sl">R:R Implied</div><div class="sv" style="color:${Math.abs(avgWin/avgLoss)>=1.5?'var(--green)':'var(--red)'}">${(Math.abs(avgWin/avgLoss)).toFixed(2)}:1</div><div class="ss">Target ≥1.5:1</div></div>
+  `;
+}
+
+// ===================================================== ANALYTICS CHARTS
+const BG = '#161b22'; const GRID = '#21262d'; const TEXT = '#8b949e';
+const cfgPlotly = {displayModeBar:false, responsive:true};
+const baseLayout = {paper_bgcolor:BG, plot_bgcolor:BG, font:{color:'#e6edf3',size:11}, margin:{t:10,r:10,b:50,l:60}, xaxis:{gridcolor:GRID,zerolinecolor:GRID}, yaxis:{gridcolor:GRID,zerolinecolor:GRID}};
+
+function renderAnalytics() {
+  // Upscale equity
+  let upRun = 0;
+  const upEq = UPSCALE.map(t => { upRun+=t.ret; return upRun; });
+  Plotly.newPlot('chart-upscale-equity', [{
+    y: [0,...upEq], x: ['Start',...UPSCALE.map(t=>t.date+' '+t.time)],
+    type:'scatter', mode:'lines+markers', line:{color:'#58a6ff',width:2}, marker:{size:5},
+    fill:'tozeroy', fillcolor:'rgba(88,166,255,0.08)', name:'Cumulative P&L'
+  }], {...baseLayout, margin:{t:10,r:10,b:60,l:55}, xaxis:{...baseLayout.xaxis,tickangle:-30}}, cfgPlotly);
+
+  // Storm equity (last 30 trades)
+  let stRun = 0;
+  const stSlice = STORM_SAMPLE.slice(0,30);
+  const stEq = stSlice.map(t => { stRun+=t.ret; return stRun; });
+  Plotly.newPlot('chart-storm-equity', [{
+    y: [0,...stEq], x: ['Start',...stSlice.map(t=>t.date+' '+t.time)],
+    type:'scatter', mode:'lines', line:{color:'#3fb950',width:2},
+    fill:'tozeroy', fillcolor:'rgba(63,185,80,0.08)', name:'Cumulative P&L'
+  }], {...baseLayout, margin:{t:10,r:10,b:60,l:55}, xaxis:{...baseLayout.xaxis,tickangle:-30}}, cfgPlotly);
+
+  // Symbol P&L Upscale
+  const upSyms = Object.keys(UP_SYM_STATS);
+  Plotly.newPlot('chart-up-sym', [{
+    x: upSyms, y: upSyms.map(s=>UP_SYM_STATS[s].total_pnl), type:'bar',
+    marker:{color: upSyms.map(s=>UP_SYM_STATS[s].total_pnl>=0?'#3fb950':'#f85149')},
+    text: upSyms.map(s=>'$'+UP_SYM_STATS[s].total_pnl.toFixed(0)), textposition:'outside'
+  }], {...baseLayout, yaxis:{...baseLayout.yaxis,title:'P&L ($)',zeroline:true}, showlegend:false}, cfgPlotly);
+
+  // Symbol P&L Storm
+  const stSyms = Object.keys(ST_SYM_STATS);
+  Plotly.newPlot('chart-st-sym', [{
+    x: stSyms, y: stSyms.map(s=>ST_SYM_STATS[s].total_pnl), type:'bar',
+    marker:{color: stSyms.map(s=>ST_SYM_STATS[s].total_pnl>=0?'#3fb950':'#f85149')},
+    text: stSyms.map(s=>'$'+ST_SYM_STATS[s].total_pnl.toFixed(0)), textposition:'outside'
+  }], {...baseLayout, yaxis:{...baseLayout.yaxis,title:'P&L ($)',zeroline:true}, showlegend:false}, cfgPlotly);
+
+  // Day of Week
+  const dows = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
+  const dowWR = dows.map(d => UPSCALE_DOW[d]?.wr ?? null);
+  const dowCnt = dows.map(d => UPSCALE_DOW[d]?.count ?? 0);
+  Plotly.newPlot('chart-dow', [{
+    x: dows.map(d=>d.slice(0,3)), y: dowWR, type:'bar',
+    marker:{color: dowWR.map(v => v===null?'#30363d': v>=60?'#3fb950':v>=40?'#d29922':'#f85149')},
+    text: dowWR.map((v,i) => v===null?'no data':v+'% ('+dowCnt[i]+')'), textposition:'outside', textfont:{size:10}
+  }], {...baseLayout, yaxis:{...baseLayout.yaxis,title:'Win Rate %',range:[0,120]}, showlegend:false}, cfgPlotly);
+
+  // Return % distribution Storm
+  const rets = STORM_SAMPLE.map(t=>t.ret_pct).filter(v=>v!=null);
+  Plotly.newPlot('chart-dist', [{
+    x: rets, type:'histogram', nbinsx:20,
+    marker:{color:'rgba(88,166,255,0.5)',line:{color:'#58a6ff',width:1}}
+  }], {...baseLayout, xaxis:{...baseLayout.xaxis,title:'Return %',zeroline:true}, yaxis:{...baseLayout.yaxis,title:'Trades'}, shapes:[{type:'line',x0:0,x1:0,y0:0,y1:1,yref:'paper',line:{color:'#8b949e',dash:'dot',width:1.5}}]}, cfgPlotly);
+
+  // WR by symbol Storm
+  const top8 = Object.entries(ST_SYM_STATS).sort((a,b)=>b[1].count-a[1].count).slice(0,8);
+  Plotly.newPlot('chart-wr-sym', [{
+    x: top8.map(([s])=>s), y: top8.map(([,v])=>v.wr), type:'bar',
+    marker:{color: top8.map(([,v])=>v.wr>=50?'#3fb950':v.wr>=40?'#d29922':'#f85149')},
+    text: top8.map(([,v])=>v.wr+'%'), textposition:'outside'
+  },{
+    x: top8.map(([s])=>s), y: top8.map(()=>50), type:'scatter', mode:'lines',
+    line:{color:'#8b949e',dash:'dot',width:1.5}, name:'50% line'
+  }], {...baseLayout, yaxis:{...baseLayout.yaxis,title:'Win Rate %',range:[0,120]}, legend:{x:0.7,y:0.98,bgcolor:'transparent',font:{size:10}}}, cfgPlotly);
+}
+
+// ===================================================== TAB SWITCHING
+function showPane(id, btn) {
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+  if (id==='analytics') renderAnalytics();
+  window.dispatchEvent(new Event('resize'));
+}
+
+function showSubTab(id, btn) {
+  document.querySelectorAll('#journal > [id^="j"]').forEach(el=>el.style.display='none');
+  document.querySelectorAll('.sub-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).style.display='block';
+  btn.classList.add('active');
+}
+
+// ===================================================== INIT
+(async function init() {
+  // Render journal tables
+  renderJournalTable('up', UPSCALE, 'up-body');
+  renderJournalTable('st', STORM_SAMPLE, 'st-body');
+
+  // Render KPIs
+  const upWins = UPSCALE.filter(t=>t.status==='WIN');
+  const upLosses = UPSCALE.filter(t=>t.status==='LOSS');
+  const upAvgWin = upWins.reduce((s,t)=>s+t.ret,0)/upWins.length;
+  const upAvgLoss = upLosses.reduce((s,t)=>s+t.ret,0)/upLosses.length;
+  renderKPIs('upscale-kpis', upWins.length, upLosses.length, upAvgWin, Math.abs(upAvgLoss),
+    UPSCALE.reduce((s,t)=>s+t.ret,0), Math.round(upWins.length/UPSCALE.length*100));
+
+  const stWins = STORM_SAMPLE.filter(t=>t.status==='WIN');
+  const stLosses = STORM_SAMPLE.filter(t=>t.status==='LOSS');
+  const stAvgWin = stWins.reduce((s,t)=>s+t.ret,0)/stWins.length;
+  const stAvgLoss = stLosses.reduce((s,t)=>s+t.ret,0)/stLosses.length;
+  renderKPIs('storm-kpis', stWins.length, stLosses.length, stAvgWin, Math.abs(stAvgLoss),
+    STORM_SAMPLE.reduce((s,t)=>s+t.ret,0), Math.round(stWins.length/STORM_SAMPLE.length*100));
+
+  // Fetch live prices
+  await fetchAllPrices();
+
+  // Auto-populate BTC price
+  if (PRICES.BTC) document.getElementById('currentPrice').value = PRICES.BTC;
+
+  // Initial calculation
+  calculate(true);
+  updateDailyBar(0, 150, 5000);
+})();
+</script>
+</body>
+</html>
