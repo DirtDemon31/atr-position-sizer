@@ -74,12 +74,42 @@
     .fetch-btn:hover { background: var(--border); }
     .fetch-status { font-size: 0.7rem; color: var(--muted); margin-top: 4px; min-height: 14px; }
 
+    /* MTF GATE */
+    .mtf-gate {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 14px; margin-bottom: 10px;
+    }
+    .mtf-gate h4 { font-size: 0.7rem; font-weight: 700; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 1px; margin-bottom: 10px; }
+    .mtf-score-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .mtf-score-row input[type=number] {
+      width: 70px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+      padding: 7px 10px; color: var(--text); font-size: 1rem; font-weight: 700;
+      text-align: center; outline: none; transition: border 0.15s;
+    }
+    .mtf-score-row input[type=number]:focus { border-color: var(--blue); }
+    .mtf-badge {
+      font-size: 0.78rem; font-weight: 700; padding: 4px 10px; border-radius: 20px;
+      border: 1px solid transparent; transition: all 0.2s;
+    }
+    .mtf-badge.pass  { background: rgba(63,185,80,0.15);  border-color: var(--green); color: var(--green); }
+    .mtf-badge.fail  { background: rgba(248,81,73,0.12);  border-color: var(--red);   color: var(--red); }
+    .mtf-badge.empty { background: var(--surface); border-color: var(--border); color: var(--muted); }
+    .mtf-hint { font-size: 0.72rem; color: var(--muted); line-height: 1.5; }
+    .mtf-hint a { color: var(--blue); text-decoration: none; }
+    .mtf-hint a:hover { text-decoration: underline; }
+
     /* MAIN CALC BUTTON */
     .calc-btn {
       width: 100%; padding: 12px; background: var(--blue); border: none; border-radius: 8px;
       color: #0d1117; font-size: 0.92rem; font-weight: 700; cursor: pointer; margin-top: 6px; transition: all 0.15s;
     }
     .calc-btn:hover { background: #79b8ff; }
+    .calc-btn:disabled, .calc-btn.locked {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--muted); cursor: not-allowed;
+    }
+    .calc-btn:disabled:hover, .calc-btn.locked:hover { background: var(--surface2); }
 
     /* RESULT CARDS */
     .res-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
@@ -257,7 +287,24 @@
           <label>Today's P&L so far ($)</label>
           <input type="number" id="todayPnl" value="0" step="0.01" oninput="calc()"/>
         </div>
-        <button class="calc-btn" onclick="calc()">Calculate</button>
+
+        <!-- MTF CONFLUENCE GATE -->
+        <div class="mtf-gate">
+          <h4>MTF Confluence Gate</h4>
+          <div class="mtf-score-row">
+            <div style="flex:1;">
+              <label style="font-size:0.75rem;color:var(--muted);display:block;margin-bottom:4px;">Score from TradingView (0–10)</label>
+              <input type="number" id="mtfScore" min="0" max="10" step="1" placeholder="—"
+                     oninput="updateMtfGate()" style="width:80px;"/>
+            </div>
+            <span id="mtf-badge" class="mtf-badge empty">Enter score</span>
+          </div>
+          <p class="mtf-hint">Only A+ setups (score ≥ 8) unlock Calculate. Read the score from the
+            <a href="https://github.com/DirtDemon31/mtf-confluence-strategy" target="_blank">MTF Confluence indicator</a>
+            dashboard on your 15m chart before sizing.</p>
+        </div>
+
+        <button class="calc-btn locked" id="calcBtn" onclick="calc()" disabled>🔒 Score ≥ 8 required</button>
       </div>
     </div>
 
@@ -313,6 +360,7 @@
       <div class="card">
         <h3>Pre-Trade Checklist</h3>
         <ul class="checklist">
+          <li id="ck-mtf">MTF score ≥ 8 confirmed</li>
           <li id="ck-price">Price entered</li>
           <li id="ck-atr">ATR entered</li>
           <li id="ck-rr">R:R ≥ 1.5:1</li>
@@ -563,6 +611,38 @@ function onAssetInput() {
   if (!val) document.getElementById('fetchStatus').textContent = 'Live price available for crypto (BTC, ETH, SOL, etc.)';
 }
 
+// ═══════════════════════════════════════════════════════ MTF GATE
+function updateMtfGate() {
+  const raw   = document.getElementById('mtfScore').value.trim();
+  const score = parseInt(raw, 10);
+  const badge = document.getElementById('mtf-badge');
+  const btn   = document.getElementById('calcBtn');
+
+  if (raw === '' || isNaN(score)) {
+    badge.textContent = 'Enter score';
+    badge.className   = 'mtf-badge empty';
+    btn.disabled      = true;
+    btn.className     = 'calc-btn locked';
+    btn.textContent   = '🔒 Score ≥ 8 required';
+  } else if (score >= 8) {
+    badge.textContent = `✓ A+ Score ${score}/10 — unlocked`;
+    badge.className   = 'mtf-badge pass';
+    btn.disabled      = false;
+    btn.className     = 'calc-btn';
+    btn.textContent   = 'Calculate';
+  } else {
+    badge.textContent = `✗ Score ${score}/10 — below threshold`;
+    badge.className   = 'mtf-badge fail';
+    btn.disabled      = true;
+    btn.className     = 'calc-btn locked';
+    btn.textContent   = `🔒 Score ${score}/10 — need ≥ 8`;
+  }
+  // Update checklist live
+  const set = (id, st) => { const el=document.getElementById(id); if(el) el.className=st; };
+  if (raw === '' || isNaN(score)) set('ck-mtf', '');
+  else set('ck-mtf', score >= 8 ? 'ok' : 'bad');
+}
+
 // ═══════════════════════════════════════════════════════ MAIN CALCULATOR
 function calc() {
   const balance  = parseFloat(document.getElementById('balance').value) || 0;
@@ -585,7 +665,9 @@ function calc() {
   updateProgBar(todayPnl, dailyCap, 'prog', 'pb-used', 'pb-rem', 'pb-cap', 'daily-msg');
 
   // Checklist base
-  updateChecklist({ price: !!price, atr: !!atr, rr, dailyCap, todayPnl, dollarRisk, posSize: null, maxPos });
+  const mtfRaw = document.getElementById('mtfScore').value.trim();
+  const mtfScore = parseInt(mtfRaw, 10);
+  updateChecklist({ price: !!price, atr: !!atr, rr, dailyCap, todayPnl, dollarRisk, posSize: null, maxPos, mtfScore, mtfRaw });
 
   if (!price || !atr || !balance) {
     document.getElementById('alert-box').className = 'alert';
@@ -648,7 +730,7 @@ function calc() {
     setAlert(alertBox, 'green', `✓ Setup valid. Risk $${dollarRisk.toFixed(2)} · R:R ${rr.toFixed(2)}:1 · ${leverage.toFixed(2)}× leverage — within all limits.`);
   }
 
-  updateChecklist({ price:true, atr:true, rr, dailyCap, todayPnl, dollarRisk, posSize, maxPos });
+  updateChecklist({ price:true, atr:true, rr, dailyCap, todayPnl, dollarRisk, posSize, maxPos, mtfScore, mtfRaw });
 }
 
 function setAlert(el, type, msg) {
@@ -678,11 +760,15 @@ function updateProgBar(todayPnl, cap, barId, usedId, remId, capId, msgId) {
   }
 }
 
-function updateChecklist({price, atr, rr, dailyCap, todayPnl, dollarRisk, posSize, maxPos}) {
+function updateChecklist({price, atr, rr, dailyCap, todayPnl, dollarRisk, posSize, maxPos, mtfScore, mtfRaw}) {
   const set = (id, st) => {
     const el = document.getElementById(id); if (!el) return;
     el.className = st;
   };
+  if (mtfRaw === '' || mtfRaw === undefined || isNaN(mtfScore))
+    set('ck-mtf', '');
+  else
+    set('ck-mtf', mtfScore >= 8 ? 'ok' : 'bad');
   set('ck-price', price  ? 'ok' : '');
   set('ck-atr',   atr    ? 'ok' : '');
   set('ck-rr',    rr >= 1.5 ? 'ok' : rr >= 1.2 ? 'warn' : 'bad');
