@@ -190,6 +190,79 @@ The daily tracker also syncs with the sizer so your "today's P&L" is always up t
 
 ---
 
+## Companion Strategy — MTF Confluence
+
+The ATR sizer handles the **sizing** side. The [MTF Confluence Strategy](https://github.com/DirtDemon31/mtf-confluence-strategy) handles the **entry signal** side. Together they form a complete signal-to-size workflow.
+
+### What It Does
+
+A Pine Script v5 indicator for TradingView that scores every bar across 7 confluence components and fires entry signals only when enough conditions align. No discretionary guessing — each signal has a numeric score and a grade.
+
+### The Scoring System (max 10 points)
+
+| Component | Points | What It Checks |
+|---|---|---|
+| **HTF Bias** (Daily + 4H + 1H) | 2 pts | Price vs EMA50 + DMI direction on higher timeframes — double weight |
+| **EMA Ribbon** (8/21/50/200) | 1 pt | All 4 EMAs stacked in order |
+| **ADX/DMI** | 1 pt | ADX ≥ 20 and +DI leading -DI (trend confirmed) |
+| **MACD** | 1 pt | MACD above signal line and histogram expanding |
+| **VWAP** | 1 pt | Price above/below VWAP |
+| **Pivot Location** | 1 pt | Price above/below daily pivot point |
+| **Bollinger Bands** | 1 pt | Price in upper/lower BB zone |
+| **Stoch RSI** | 1 pt | %K cross from oversold (long) or overbought (short) |
+| **Volume** | 1 pt | Volume ≥ 1× 20-period average |
+
+**Signal grades:**
+- **A+ (Score ≥ 7/10)** — Strong confluence, all major components aligned
+- **B (Score 5–6/10)** — Moderate confluence, proceed with caution and tighter sizing
+
+### Entry / Exit Logic
+
+**Entry trigger:** Score threshold met AND Stoch RSI fires a fresh cross AND ADX ≥ 20.  
+The HTF score sets the bias on the Daily/4H/1H. The Stoch RSI cross on the 15m/30m chart is the actual entry trigger — this prevents trading against the macro trend on a microstructure wiggle.
+
+**Exit:** First of — MACD crosses against position, Stoch RSI crosses from extreme zone, or EMA ribbon flips direction.
+
+### Complete Signal-to-Size Workflow
+
+```
+Step 1 — TradingView (MTF Confluence Strategy)
+  • Load the indicator on your 15m or 30m chart
+  • Wait for an A+ signal (score ≥ 7) with Stoch RSI trigger
+  • Note: entry price, direction, ATR(14) from the chart
+
+Step 2 — ATR Position Sizer (this tool)
+  • Enter your account balance and risk %
+  • Paste in the ATR(14) value from Step 1
+  • Set multiplier (1.5× default, 2× in high-vol)
+  • Set your R:R target (minimum 1.5R for A+ signals)
+  • The sizer calculates exact lot size, stop price, and TP
+
+Step 3 — Execute
+  • Place the trade with the exact quantity from the sizer
+  • Set stop and TP at the prices the sizer calculated
+  • Log it in the Daily Tracker tab
+```
+
+### ATR Multiplier Guidance for This Strategy
+
+| Signal Grade | Recommended Multiplier | Reasoning |
+|---|---|---|
+| **A+ (≥ 7/10)** | 1.5× | Strong confluence — normal stop width |
+| **B (5–6/10)** | 2.0× | Moderate confluence — give more room |
+| **Any grade, high-vol session** | 2.0–2.5× | Post-news, wide candles — avoid stop hunts |
+| **Scalp on 15m** | 1.0–1.5× | Tight stop acceptable on fast entries |
+
+### Install the Pine Script
+
+1. Open [TradingView](https://www.tradingview.com) → Pine Script Editor (bottom panel)
+2. Copy the full script from [mtf-confluence-strategy](https://github.com/DirtDemon31/mtf-confluence-strategy/blob/main/MTF_Confluence_Strategy.pine)
+3. Paste into the editor → **Add to chart**
+4. The on-chart dashboard shows live scores for both long and short
+5. Set alerts on "A+ LONG Signal" or "A+ SHORT Signal" so you don't have to watch the screen
+
+---
+
 ## Privacy
 
 This tool collects **zero data**. There is no server, no analytics, no cookies, no tracking. The entire app is a single HTML file that runs in your browser. Closing the tab wipes all session data.
